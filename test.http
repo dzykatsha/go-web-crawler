@@ -1,0 +1,15 @@
+### Working sample
+
+POST http://localhost:8080/load/?url=http://realpython.com/&depth=0 HTTP/1.1
+
+### Must return 400 Bad Request
+
+POST http://localhost:8080/load/?depth=0 HTTP/1.1
+
+### Must return 400 Bad Request
+
+POST http://localhost:8080/load/?url=http://realpython.com/ HTTP/1.1
+
+### Must return 405 Method not Allowed
+
+GET http://localhost:8080/load/?url=http://realpython.com/&depth=0 HTTP/1.1

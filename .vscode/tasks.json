@@ -1,0 +1,18 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Docker Compose Up | DEBUG",
+      "type": "docker-compose",
+      "dockerCompose": {
+        "up": {
+          "detached": true,
+          "build": true,
+          "services": ["queue", "db", "db-web", "monitor"]
+        },
+        "files": ["${workspaceFolder}/docker-compose.yml"],
+        "envFile": "${workspaceFolder}/settings/docker.env"
+      }
+    }
+  ]
+}
