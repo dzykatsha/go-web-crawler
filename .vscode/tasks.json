@@ -13,6 +13,57 @@
         "files": ["${workspaceFolder}/docker-compose.yml"],
         "envFile": "${workspaceFolder}/settings/docker.env"
       }
+    },
+    {
+      "label": "Docker Compose Up | DOCKER",
+      "type": "docker-compose",
+      "dockerCompose": {
+        "up": {
+          "detached": true,
+          "build": true
+        },
+        "files": ["${workspaceFolder}/docker-compose.yml"],
+        "envFile": "${workspaceFolder}/settings/docker.env"
+      }
+    },
+    {
+      "label": "Docker Compose Up Worker | DOCKER",
+      "type": "docker-compose",
+      "dockerCompose": {
+        "up": {
+          "detached": true,
+          "build": true,
+          "services": ["worker"]
+        },
+        "files": ["${workspaceFolder}/docker-compose.yml"],
+        "envFile": "${workspaceFolder}/settings/docker.env"
+      }
+    },
+    {
+      "label": "Docker Compose Up API | DOCKER",
+      "type": "docker-compose",
+      "dockerCompose": {
+        "up": {
+          "detached": true,
+          "build": true,
+          "services": ["api"]
+        },
+        "files": ["${workspaceFolder}/docker-compose.yml"],
+        "envFile": "${workspaceFolder}/settings/docker.env"
+      }
+    },
+    {
+      "label": "Docker Compose Up Client | DOCKER",
+      "type": "docker-compose",
+      "dockerCompose": {
+        "up": {
+          "detached": true,
+          "build": true,
+          "services": ["client"]
+        },
+        "files": ["${workspaceFolder}/docker-compose.yml"],
+        "envFile": "${workspaceFolder}/settings/docker.env"
+      }
     }
   ]
 }

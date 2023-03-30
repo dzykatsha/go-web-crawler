@@ -36,3 +36,57 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
     ports:
       - 8080:8080
+
+  client:
+    image: go-web-crawler-client:latest
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${API_URL}
+    restart: always
+    ports:
+      - 3000:3000
+
+  worker:
+    image: go-web-crawler-worker:latest
+    build:
+      context: ./server
+      dockerfile: worker.Dockerfile
+    restart: always
+    environment:
+      - MONGO_HOST=${MONGO_HOST}
+      - MONGO_PORT=${MONGO_PORT}
+      - MONGO_USERNAME=${MONGO_USERNAME}
+      - MONGO_PASSWORD=${MONGO_PASSWORD}
+      - MONGO_DATABASE=${MONGO_DATABASE}
+      - MONGO_COLLECTION=${MONGO_COLLECTION}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    depends_on:
+      - db
+      - queue
+    
+  api:
+    image: go-web-crawler-api:latest
+    build:
+      context: ./server
+      dockerfile: api.Dockerfile
+    restart: always
+    ports:
+      - 8000:8000
+    environment:
+      - MONGO_HOST=${MONGO_HOST}
+      - MONGO_PORT=${MONGO_PORT}
+      - MONGO_USERNAME=${MONGO_USERNAME}
+      - MONGO_PASSWORD=${MONGO_PASSWORD}
+      - MONGO_DATABASE=${MONGO_DATABASE}
+      - MONGO_COLLECTION=${MONGO_COLLECTION}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - API_PORT=${API_PORT}
+    depends_on:
+      - db
+      - queue
