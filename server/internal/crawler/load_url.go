@@ -14,6 +14,7 @@ import (
 
 	"github.com/dzykatsha/go-web-crawler/internal/utils"
 	"github.com/hibiken/asynq"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -47,10 +48,11 @@ func (p LoadURLProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error 
 	}
 
 	// save to mongodb
-	data := make(map[string]interface{})
-	data["createdAt"] = time.Now().Unix()
-	data["html"] = string(body)
-	data["url"] = payload.Url
+	data := bson.M{
+		"createdAt": time.Now().Unix(),
+		"html":      string(body),
+		"url":       payload.Url,
+	}
 
 	_, err = p.collection.InsertOne(ctx, data)
 	if err != nil {
