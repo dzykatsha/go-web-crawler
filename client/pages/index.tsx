@@ -9,10 +9,10 @@ import Modal from "react-modal";
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function Home() {
-  const [stats, setStats] = useState<Statistics | null>(null);
+  const [stats, setStats] = useState<Statistics>({ total: 0, urls: [] });
   const [page, setPage] = useState<number>(1);
   const [url, setUrl] = useState<string>();
-  const [depth, setDepth] = useState<number>();
+  const [depth, setDepth] = useState<number>(0);
   const [urlInfo, setUrlInfo] = useState<URLInfo>();
   const [isOpen, setIsOpen] = useState<boolean>(false);
 
@@ -49,7 +49,9 @@ export default function Home() {
   };
 
   const openHTML = async (uid: string) => {
-    const result = await axios.get(`${API_URL}/page`, { params: { uid: uid } });
+    const result = await axios.get(`${API_URL}/page`, {
+      params: { uid: uid },
+    });
     setUrlInfo(result.data);
     setIsOpen(true);
   };
@@ -91,24 +93,26 @@ export default function Home() {
                 </tr>
               </thead>
               <tbody>
-                {stats?.urls.map((url) => (
-                  <tr key={url.uid}>
-                    <th scope="row">
-                      <a
-                        className="link-info"
-                        onMouseDown={() => openHTML(url.uid)}
-                      >
-                        {url.uid}
-                      </a>
-                    </th>
-                    <td>
-                      {new Date(url.createdAt * 1000).toLocaleTimeString(
-                        "ru-RU"
-                      )}
-                    </td>
-                    <td>{url.url}</td>
-                  </tr>
-                ))}
+                {stats &&
+                  stats.urls &&
+                  stats.urls.map((url) => (
+                    <tr key={url.uid}>
+                      <th scope="row">
+                        <a
+                          className="link-info"
+                          onMouseDown={() => openHTML(url.uid)}
+                        >
+                          {url.uid}
+                        </a>
+                      </th>
+                      <td>
+                        {new Date(url.createdAt * 1000).toLocaleTimeString(
+                          "ru-RU"
+                        )}
+                      </td>
+                      <td>{url.url}</td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
@@ -144,29 +148,33 @@ export default function Home() {
           <div className="container-md mt-5">
             <h3>Download new page</h3>
             <form name="contact-form">
-              <div className="form-group mt-1 mb-1">
-                <input
-                  id="url"
-                  name="url"
-                  type="url"
-                  className="form-control"
-                  placeholder="Enter url of web page to scarp"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-group mt-1 mb-1">
-                <input
-                  id="depth"
-                  name="depth"
-                  type="number"
-                  className="form-control"
-                  placeholder="Enter depth of scarping pages"
-                  value={depth}
-                  onChange={(e) => setDepth(+e.target.value)}
-                  required
-                />
+              <div className="row w-50">
+                <div className="form-group">
+                  <input
+                    id="url"
+                    name="url"
+                    type="url"
+                    className="form-control"
+                    placeholder="Enter url of web page to scarp"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group xs-4">
+                  <label className="form-label">Depth: {depth}</label>
+                  <input
+                    type="range"
+                    id="depth"
+                    name="depth"
+                    className="form-range"
+                    min="0"
+                    max="5"
+                    step="1"
+                    value={depth}
+                    onChange={(e) => setDepth(+e.target.value)}
+                  ></input>
+                </div>
               </div>
               <button
                 type="submit"

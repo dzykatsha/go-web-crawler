@@ -1,7 +1,7 @@
 {
   "configurations": [
     {
-      "name": "Start node application",
+      "name": "Debug Client",
       "command": "npm run dev",
       "request": "launch",
       "type": "node-terminal",

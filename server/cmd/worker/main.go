@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/dzykatsha/go-web-crawler/internal/crawler"
 	"github.com/dzykatsha/go-web-crawler/internal/settings"
 	"github.com/hibiken/asynq"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -19,12 +19,13 @@ func main() {
 
 	redisSettings := settings.NewRedisSettingsFromEnv()
 	mongoSettings := settings.NewMongoSettingsFromEnv()
+	asynqSettings := settings.NewAsynqSettingsFromEnv()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	mongoClient, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoSettings.ConnectionURL()))
 	if err != nil {
-		log.Fatalf("failed to connect to mongodb: %v", err)
+		log.Fatal().Err(err).Msg("failed to connect to mongodb")
 	}
 
 	defer func() {
@@ -42,7 +43,7 @@ func main() {
 	defer asynqClient.Close()
 
 	worker := asynq.NewServer(redisConnection, asynq.Config{
-		Concurrency: 10,
+		Concurrency: asynqSettings.Concurrency,
 		Queues: map[string]int{
 			"critical": 6, // processed 60% of the time
 			"default":  3, // processed 30% of the time
@@ -64,6 +65,6 @@ func main() {
 	)
 
 	if err := worker.Run(mux); err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Msg("")
 	}
 }

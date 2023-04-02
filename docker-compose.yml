@@ -54,6 +54,7 @@ services:
       context: ./server
       dockerfile: worker.Dockerfile
     restart: always
+    scale: 5
     environment:
       - MONGO_HOST=${MONGO_HOST}
       - MONGO_PORT=${MONGO_PORT}
@@ -64,6 +65,7 @@ services:
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - ASYNQ_CONCURRENCY=${ASYNQ_CONCURRENCY}
     depends_on:
       - db
       - queue
@@ -87,6 +89,7 @@ services:
       - REDIS_PORT=${REDIS_PORT}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - API_PORT=${API_PORT}
+      - ASYNQ_CONCURRENCY=${ASYNQ_CONCURRENCY}
     depends_on:
       - db
       - queue

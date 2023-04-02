@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/dzykatsha/go-web-crawler/internal/settings"
 	"github.com/hibiken/asynq"
 	"github.com/rs/cors"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -37,12 +37,12 @@ func main() {
 	defer cancel()
 	mongoClient, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoSettings.ConnectionURL()))
 	if err != nil {
-		log.Fatalf("failed to connect to mongodb: %v", err)
+		log.Fatal().Err(err).Msg("failed to connect to mongodb")
 	}
 
 	defer func() {
 		if err = mongoClient.Disconnect(ctx); err != nil {
-			panic(err)
+			log.Panic().Err(err)
 		}
 	}()
 	collection := mongoClient.Database(mongoSettings.Database).Collection(mongoSettings.Collection)
@@ -56,6 +56,6 @@ func main() {
 
 	handler := cors.Default().Handler(mux)
 	if err := http.ListenAndServe(apiSettings.Address(), handler); err != nil {
-		log.Fatal(err)
+		log.Panic().Err(err)
 	}
 }

@@ -31,6 +31,5 @@ func FindUrls(node *html.Node) []string {
 			urls = append(urls, others[i])
 		}
 	}
-
 	return urls
 }
