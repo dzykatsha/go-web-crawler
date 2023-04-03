@@ -22,26 +22,30 @@ type GetStatisticsData struct {
 	Urls  []model.URLDocument `json:"urls"`
 }
 
-func (h GetStatisticsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (handler GetStatisticsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// verify method
 	if r.Method != "GET" {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		w.Write([]byte("405 - Method not allowed"))
 		return
 	}
 
-	q := r.URL.Query()
-	p, err := strconv.Atoi(q.Get("page"))
+	// read page from query
+	query := r.URL.Query()
+	page, err := strconv.Atoi(query.Get("page"))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("400 - Failed to parse int from page query parameter"))
 		return
 	}
-	o := options.Find().
+
+	// read documents from mongo
+	mongoOptions := options.Find().
 		SetSort(bson.M{"createdAt": 1}).
-		SetSkip((int64)(p-1) * 10).
+		SetSkip((int64)(page-1) * 10).
 		SetLimit(10)
 	ctx := context.TODO()
-	c, err := h.collection.Find(ctx, bson.D{}, o)
+	mongoCursor, err := handler.collection.Find(ctx, bson.D{}, mongoOptions)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - Failed to fetch data: %v", err)))
@@ -49,19 +53,22 @@ func (h GetStatisticsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var result []model.URLDocument
-	if err := c.All(ctx, &result); err != nil {
+	if err := mongoCursor.All(ctx, &result); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - Failed to fetch data: %v", err)))
 		return
 	}
-	total, err := h.collection.CountDocuments(ctx, bson.D{})
+
+	// read total count from mongo
+	total, err := handler.collection.CountDocuments(ctx, bson.D{})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - Failed to fetch total: %v", err)))
 		return
 	}
 
-	resBody, err := json.Marshal(GetStatisticsData{Total: total, Urls: result})
+	// respond
+	responseBody, err := json.Marshal(GetStatisticsData{Total: total, Urls: result})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("500 - Failed to marshal data: %v", err)))
@@ -69,7 +76,7 @@ func (h GetStatisticsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write(resBody)
+	w.Write(responseBody)
 }
 
 func NewGetStatisticsHandler(collection *mongo.Collection) GetStatisticsHandler {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/dzykatsha/go-web-crawler/internal/crawler"
+	"github.com/dzykatsha/go-web-crawler/internal/crawler/load"
 	"github.com/dzykatsha/go-web-crawler/internal/settings"
 	"github.com/hibiken/asynq"
 	"github.com/rs/zerolog/log"
@@ -55,8 +55,8 @@ func main() {
 
 	// add handler
 	mux.Handle(
-		crawler.LoadURL,
-		crawler.NewLoadURLProcessor(
+		load.KEY,
+		load.NewProcessor(
 			mongoClient,
 			mongoSettings.Database,
 			mongoSettings.Collection,

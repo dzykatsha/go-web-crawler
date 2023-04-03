@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/dzykatsha/go-web-crawler/internal/crawler"
+	"github.com/dzykatsha/go-web-crawler/internal/crawler/load"
 	"github.com/hibiken/asynq"
 	"github.com/rs/zerolog/log"
 )
@@ -20,7 +20,8 @@ type PostLoadURLData struct {
 	Depth int    `json:"depth"`
 }
 
-func (h PostLoadURLHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (handler PostLoadURLHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// verify method
 	if r.Method != "POST" {
 		log.Error().Msgf("method not allowed: %s", r.Method)
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -28,8 +29,8 @@ func (h PostLoadURLHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var b PostLoadURLData
-	raw, err := io.ReadAll(r.Body)
+	// read body
+	rawRequestBody, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Error().Err(err).Msgf("failed to read body")
 		w.WriteHeader(http.StatusBadRequest)
@@ -37,21 +38,16 @@ func (h PostLoadURLHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := json.Unmarshal(raw, &b); err != nil {
+	var requestBody PostLoadURLData
+	if err := json.Unmarshal(rawRequestBody, &requestBody); err != nil {
 		log.Error().Err(err).Msgf("failed to parse body")
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(fmt.Sprintf("400 - Failed to parse body\n%v", err)))
 		return
 	}
 
-	if b.Url == "" || err != nil {
-		log.Error().Err(err).Msgf("missing url or depth query params")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("400 - missing url or depth query parameter"))
-		return
-	}
-
-	t, err := crawler.NewLoadURLTask(b.Url, b.Depth)
+	// send task
+	task, err := load.NewTask(requestBody.Url, requestBody.Depth)
 	if err != nil {
 		log.Error().Err(err).Msgf("failed to create task")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -59,7 +55,7 @@ func (h PostLoadURLHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	i, err := h.asynqClient.Enqueue(t, asynq.MaxRetry(-1))
+	taskInfo, err := handler.asynqClient.Enqueue(task, asynq.MaxRetry(-1))
 	if err != nil {
 		log.Error().Err(err).Msgf("failed send load url task")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -67,9 +63,10 @@ func (h PostLoadURLHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// respond
 	log.Info().Msg("Successfully send load url task")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(i.ID))
+	w.Write([]byte(taskInfo.ID))
 }
 
 func NewPostLoadURLHandler(client *asynq.Client) PostLoadURLHandler {
