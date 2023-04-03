@@ -1,4 +1,4 @@
-package crawler
+package load
 
 import (
 	"context"
@@ -17,19 +17,22 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-type LoadURLProcessor struct {
+type Processor struct {
 	collection *mongo.Collection
 	client     *asynq.Client
 }
 
-func (p LoadURLProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error {
+func (p Processor) ProcessTask(ctx context.Context, task *asynq.Task) error {
 	// read payload
-	var payload LoadURLPayload
-	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+	var payload Payload
+	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
 		return err
 	}
 
+	taskId := task.ResultWriter().TaskID()
+
 	log.Info().
+		Str("task", taskId).
 		Str("url", payload.Url).
 		Int("depth", payload.Depth).
 		Msg("received new url to parse")
@@ -37,6 +40,7 @@ func (p LoadURLProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error 
 	baseUrl, err := url.Parse(payload.Url)
 	if err != nil {
 		log.Error().
+			Str("task", taskId).
 			Str("url", payload.Url).
 			Int("depth", payload.Depth).
 			Err(err).
@@ -46,9 +50,10 @@ func (p LoadURLProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error 
 	}
 
 	// get passed page
-	req, err := http.Get(payload.Url)
+	response, err := http.Get(payload.Url)
 	if err != nil {
 		log.Error().
+			Str("task", taskId).
 			Str("url", payload.Url).
 			Int("depth", payload.Depth).
 			Err(err).
@@ -58,8 +63,9 @@ func (p LoadURLProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error 
 	}
 
 	// check if we actually work with HTML file
-	if !strings.Contains(req.Header.Get("content-type"), "html") {
+	if !strings.Contains(response.Header.Get("content-type"), "html") {
 		log.Error().
+			Str("task", taskId).
 			Str("url", payload.Url).
 			Int("depth", payload.Depth).
 			Msg("not html")
@@ -67,10 +73,11 @@ func (p LoadURLProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error 
 		return fmt.Errorf("content-type is not html: %s", payload.Url)
 	}
 
-	// read response body
-	body, err := io.ReadAll(req.Body)
+	// read response responseBody
+	responseBody, err := io.ReadAll(response.Body)
 	if err != nil {
 		log.Error().
+			Str("task", taskId).
 			Str("url", payload.Url).
 			Int("depth", payload.Depth).
 			Err(err).
@@ -82,23 +89,25 @@ func (p LoadURLProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error 
 	// save to mongodb
 	data := bson.M{
 		"createdAt": time.Now().Unix(),
-		"html":      string(body),
+		"html":      string(responseBody),
 		"url":       payload.Url,
 	}
 
 	_, err = p.collection.InsertOne(ctx, data)
 	if err != nil {
 		log.Error().
+			Str("task", taskId).
 			Str("url", payload.Url).
 			Int("depth", payload.Depth).
 			Err(err).
-			Msg("failed to inset document")
+			Msg("failed to insert document")
 
 		return err
 	}
 	// check if we need to recursively load other urls
 	if payload.Depth == 0 {
 		log.Info().
+			Str("task", taskId).
 			Str("url", payload.Url).
 			Int("depth", payload.Depth).
 			Msg("finished processing leaf url")
@@ -109,42 +118,32 @@ func (p LoadURLProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error 
 
 	urls := []string{}
 
-	for _, value := range xurls.Relaxed.FindAllString(string(body), -1) {
-		u, err := url.Parse(value)
+	for _, value := range xurls.Relaxed.FindAllString(string(responseBody), -1) {
+		url, err := ParseUrl(value, *baseUrl)
 		if err != nil {
 			log.Error().
+				Str("task", taskId).
 				Str("url", payload.Url).
 				Int("depth", payload.Depth).
 				Err(err).
-				Msg("failed to parse next url")
+				Msgf("failed to parse url: %s", url)
 
 			continue
 		}
 
-		if u.Scheme == "" || u.Host == "" {
-			u.Scheme = baseUrl.Scheme
-			u.Host = baseUrl.Host
-		}
-
-		if u.Host != baseUrl.Host {
-			log.Error().
-				Str("url", payload.Url).
-				Int("depth", payload.Depth).
-				Msg("host mismatch")
-
-			continue
-		}
-
-		urls = append(urls, u.String())
+		urls = append(urls, url)
 	}
 
 	log.Info().
+		Str("task", taskId).
+		Str("url", payload.Url).
+		Int("depth", payload.Depth).
 		Int("count", len(urls)).
 		Msg("invoking urls")
 
 	// send recursively other links with lower depth
-	for _, nestedUrl := range urls {
-		subTask, err := NewLoadURLTask(nestedUrl, payload.Depth-1)
+	for _, url := range urls {
+		subTask, err := NewTask(url, payload.Depth-1)
 		if err != nil {
 			continue
 		}
@@ -152,6 +151,7 @@ func (p LoadURLProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error 
 		p.client.Enqueue(subTask, asynq.MaxRetry(-1))
 	}
 	log.Info().
+		Str("task", taskId).
 		Str("url", payload.Url).
 		Int("depth", payload.Depth).
 		Msg("finished processing node url")
@@ -159,8 +159,8 @@ func (p LoadURLProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error 
 	return nil
 }
 
-func NewLoadURLProcessor(mongoClient *mongo.Client, database string, collection string, asynqClient *asynq.Client) *LoadURLProcessor {
-	return &LoadURLProcessor{
+func NewProcessor(mongoClient *mongo.Client, database string, collection string, asynqClient *asynq.Client) *Processor {
+	return &Processor{
 		collection: mongoClient.Database(database).Collection(collection),
 		client:     asynqClient,
 	}
